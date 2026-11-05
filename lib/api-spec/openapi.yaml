@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: shifts
+    description: Authenticated shift tracking
 paths:
   /healthz:
     get:
@@ -24,6 +26,143 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [shifts]
+      summary: Get dashboard summary
+      responses:
+        "200":
+          description: Dashboard totals and recent activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        "401":
+          description: Authentication required
+  /shifts:
+    get:
+      operationId: listShifts
+      tags: [shifts]
+      summary: List the current user's shifts
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Shifts ordered from newest to oldest
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Shift"
+        "401":
+          description: Authentication required
+    post:
+      operationId: createManualShift
+      tags: [shifts]
+      summary: Add a completed shift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ManualShiftInput"
+      responses:
+        "201":
+          description: Shift created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "400":
+          description: Invalid shift data
+        "409":
+          description: Shift overlaps an existing shift
+        "401":
+          description: Authentication required
+  /shifts/start:
+    post:
+      operationId: startShift
+      tags: [shifts]
+      summary: Start a shift now
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartShiftInput"
+      responses:
+        "201":
+          description: Active shift created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "409":
+          description: An active shift already exists
+        "401":
+          description: Authentication required
+  /shifts/{id}/end:
+    post:
+      operationId: endShift
+      tags: [shifts]
+      summary: End an active shift
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Completed shift
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Shift"
+        "404":
+          description: Active shift not found
+        "400":
+          description: Invalid shift identifier
+        "401":
+          description: Authentication required
+  /shifts/{id}:
+    delete:
+      operationId: deleteShift
+      tags: [shifts]
+      summary: Delete a shift
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "204":
+          description: Shift deleted
+        "404":
+          description: Shift not found
+        "400":
+          description: Invalid shift identifier
+        "401":
+          description: Authentication required
 components:
   schemas:
     HealthStatus:
@@ -33,4 +172,79 @@ components:
           type: string
       required:
         - status
+    Shift:
+      type: object
+      required: [id, startedAt, endedAt, hourlyRateCents, notes, durationSeconds, createdAt]
+      properties:
+        id:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: [string, "null"]
+          format: date-time
+        hourlyRateCents:
+          type: integer
+          minimum: 0
+        notes:
+          type: [string, "null"]
+        durationSeconds:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+    StartShiftInput:
+      type: object
+      required: [hourlyRateCents]
+      properties:
+        hourlyRateCents:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        notes:
+          type: string
+          maxLength: 500
+    ManualShiftInput:
+      type: object
+      required: [startedAt, endedAt, hourlyRateCents]
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+        hourlyRateCents:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        notes:
+          type: string
+          maxLength: 500
+    DashboardSummary:
+      type: object
+      required: [activeShift, weekHours, weekPayCents, totalHours, totalPayCents, recentShifts]
+      properties:
+        activeShift:
+          oneOf:
+            - $ref: "#/components/schemas/Shift"
+            - type: "null"
+        weekHours:
+          type: number
+          minimum: 0
+        weekPayCents:
+          type: integer
+          minimum: 0
+        totalHours:
+          type: number
+          minimum: 0
+        totalPayCents:
+          type: integer
+          minimum: 0
+        recentShifts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Shift"
 

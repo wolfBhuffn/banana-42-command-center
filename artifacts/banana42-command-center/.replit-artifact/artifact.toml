@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "BANANA_42 Command Center"
+description = "A secure operations dashboard for tracking shifts, hourly pay, and personal work history with authenticated accounts."
+version = "1.0.0"
+id = "artifacts/banana42-command-center"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26191
+
+[services.development]
+run = "pnpm --filter @workspace/banana42-command-center run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/banana42-command-center", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/banana42-command-center/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26191"
+BASE_PATH = "/"
